@@ -3,7 +3,6 @@ import express from "express";
 import cors from "cors";
 import { prisma } from "./lib/prisma.js";
 import { supabase } from "./lib/supabase.js";
-import { salvarNoBanco } from "./repositories/treinoRepository.js";
 import { gerarTreinoIA } from "./services/geminiService.js";
 
 const app = express();
@@ -30,42 +29,23 @@ const authenticate = async (req: any, res: any, next: any) => {
   next();
 };
 
-// --- ROTAS ---
+app.get("/treinos", authenticate, async (req: any, res) => {
+  const personalId = req.user.id;
 
-// 3. USO NA ROTA DE SALVAR (Observe o 'authenticate' entre o caminho e a função)
-app.post("/salvar-treino", authenticate, async (req: any, res: any) => {
-  try {
-    const { alunoId, conteudo } = req.body;
-
-    // IMPORTANTE: O personalId não vem mais do body (perigoso),
-    // ele vem direto do token autenticado pelo middleware!
-    const personalId = req.user.id;
-
-    if (!alunoId || !conteudo) {
-      return res.status(400).json({ error: "Dados incompletos." });
-    }
-
-    const treinoFinal = await salvarNoBanco(alunoId, personalId, conteudo);
-    return res.status(201).json(treinoFinal);
-  } catch (error) {
-    return res.status(500).json({ error: "Erro ao salvar" });
-  }
-});
-
-// --- ROTA 1: LISTAR TODOS OS TREINOS (Visão do Personal) ---
-app.get("/treinos", async (req, res) => {
   try {
     const treinos = await prisma.treino.findMany({
+      where: { personalId },
       orderBy: { createdAt: "desc" },
+      include: {
+        aluno: true, // Isso traz os dados do aluno (nome, peso, etc) junto com o treino
+      },
     });
-    return res.json(treinos);
+    res.json(treinos);
   } catch (error) {
-    return res.status(500).json({ error: "Erro ao buscar treinos" });
+    res.status(500).json({ error: "Erro ao buscar treinos" });
   }
 });
 
-// --- ROTA 2: BUSCAR UM TREINO ÚNICO (Link do Aluno) ---
-// É esta rota que o React vai chamar quando houver um "?view=ID" na URL
 app.get("/treino/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -84,7 +64,6 @@ app.get("/treino/:id", async (req, res) => {
   }
 });
 
-// --- ROTA 3: GERAR SUGESTÃO (Apenas IA - Rascunho) ---
 app.post("/gerar-sugestao", async (req, res) => {
   try {
     const dadosAluno = req.body;
@@ -98,30 +77,58 @@ app.post("/gerar-sugestao", async (req, res) => {
   }
 });
 
-// --- ROTA 4: SALVAR DEFINITIVO (Pós-Revisão da Personal) ---
-app.post("/salvar-treino", async (req, res) => {
+app.post("/salvar-treino", authenticate, async (req: any, res) => {
+  const { nome, idade, peso, altura, objetivo, conteudo } = req.body;
+
+  const personalId = req.user.id;
+
   try {
-    const { alunoId, personalId, conteudo } = req.body;
-
-    if (!alunoId || !personalId || !conteudo) {
-      return res
-        .status(400)
-        .json({ error: "Dados incompletos para salvamento." });
-    }
-
-    console.log("💾 Personal validou! Gravando treino definitivo...");
-    const treinoFinal = await salvarNoBanco(alunoId, personalId, conteudo);
-
-    return res.status(201).json({
-      message: "Treino validado e enviado ao aluno! 🔥",
-      dados: treinoFinal,
+    await prisma.user.upsert({
+      where: { id: personalId },
+      update: {},
+      create: {
+        id: personalId,
+        nome: "Nayra Personal",
+        email: req.user.email,
+      },
     });
-  } catch (error: any) {
-    return res.status(500).json({ error: "Erro ao persistir treino final" });
+
+    const aluno = await prisma.aluno.upsert({
+      where: {
+        id: req.body.alunoId || crypto.randomUUID(),
+      },
+      update: {
+        peso: Number(peso),
+        altura: Number(altura),
+        idade: Number(idade),
+        objetivo: objetivo,
+      },
+      create: {
+        nome: nome,
+        idade: Number(idade),
+        peso: Number(peso),
+        altura: Number(altura),
+        objetivo: objetivo,
+        limitacoes: conteudo.limitacoes || [],
+      },
+    });
+
+    const novoTreino = await prisma.treino.create({
+      data: {
+        personalId: personalId,
+        alunoId: aluno.id,
+        conteudo: conteudo, 
+      },
+    });
+
+    res.json(novoTreino);
+  } catch (error) {
+    console.error("Erro ao salvar treino:", error);
+    res.status(500).json({ error: "Erro interno ao salvar o treino." });
   }
 });
 
-// --- ROTA PARA DELETAR TREINO ---
+// --- ROTA PARA DELETAR TREINO --- implementação pendente
 app.delete("/treino/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -132,8 +139,7 @@ app.delete("/treino/:id", async (req, res) => {
   }
 });
 
-// --- ROTA PARA OCULTAR/ARQUIVAR TREINO ---
-// Usaremos um campo chamado "arquivado" (precisaremos ajustar o Prisma depois)
+// --- ROTA PARA OCULTAR/ARQUIVAR TREINO --- implementação pendente
 app.patch("/treino/:id/arquivar", async (req, res) => {
   try {
     const { id } = req.params;

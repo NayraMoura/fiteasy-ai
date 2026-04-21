@@ -19,6 +19,7 @@ model Aluno {
   nome         String
   idade        Int
   peso         Float
+  altura       Float
   limitacoes   String[]
   objetivo     String
   equipamentos String[]

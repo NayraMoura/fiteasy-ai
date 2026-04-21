@@ -12,6 +12,11 @@ export default function App() {
   const [treinos, setTreinos] = useState<any[]>([]);
   const [rascunho, setRascunho] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
+  const [visiveis, setVisiveis] = useState<Record<string, boolean>>({});
+
+  const toggleVisibilidade = (id: string) => {
+    setVisiveis((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const params = new URLSearchParams(window.location.search);
   const treinoIdParaVisualizar = params.get("view");
@@ -76,15 +81,20 @@ export default function App() {
     buscarTreinos();
   }, [etapa, treinoIdParaVisualizar, session]);
 
-  const gerarSugestaoIA = async (dadosAluno: any) => {
+  const gerarSugestaoIA = async (dadosDoFormulario: any) => {
     setLoading(true);
     try {
-      const response = await api.post("/gerar-sugestao", dadosAluno);
-      console.log("IA Resposta:", response.data); // Log para debug
-      setRascunho(response.data);
+      const respostaIA = await api.post("/gerar-sugestao", dadosDoFormulario);
+
+      setRascunho({
+        ...dadosDoFormulario,
+        ...respostaIA.data,
+      });
+
       setEtapa("revisao");
     } catch (error) {
-      alert("Erro ao gerar sugestão com a IA.");
+      console.error(error);
+      alert("Erro ao gerar treino com IA.");
     } finally {
       setLoading(false);
     }
@@ -94,21 +104,35 @@ export default function App() {
     const token = session?.access_token;
     if (!token) return alert("Sessão expirada.");
 
+    // Validar se temos os dados necessários no rascunho
+    if (!rascunho || !rascunho.nome) {
+      return alert("Dados do treino incompletos.");
+    }
+
     try {
       await api.post(
         "/salvar-treino",
         {
-          alunoId: "id-aluno-joao",
+          // Envia os dados do aluno para o servidor criar/atualizar o registro
+          alunoId: rascunho.alunoId || "temp-id", // Caso ainda use IDs temporários
+          nome: rascunho.nome,
+          idade: rascunho.idade,
+          peso: rascunho.peso,
+          altura: rascunho.altura,
+          objetivo: rascunho.objetivo,
           conteudo: rascunho,
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      alert("Treino publicado! 🎉");
+      alert(`Treino de ${rascunho.nome} publicado com sucesso! 🎉`);
       setEtapa("lista");
       setRascunho(null);
-    } catch (error) {
-      alert("Erro ao publicar. Verifique o console do servidor.");
+    } catch (error: any) {
+      console.error(error);
+      alert(
+        "Erro ao publicar: " + (error.response?.data?.error || error.message),
+      );
     }
   };
 
@@ -153,7 +177,6 @@ export default function App() {
           <main className="max-w-5xl mx-auto">
             {etapa === "view_aluno" && rascunho && (
               <div className="space-y-8 animate-in fade-in duration-700">
-                {/* Visualização do Aluno (Igual ao seu, mantido) */}
                 <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-2 h-full bg-cyan-500"></div>
                   <h3 className="text-2xl font-bold text-white mb-2">
@@ -182,6 +205,14 @@ export default function App() {
                                   {ex.series} séries de {ex.reps}
                                 </p>
                               </div>
+                              <a
+                                href={`https://www.youtube.com/results?search_query=como+fazer+${encodeURIComponent(ex.nome)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"
+                              >
+                                <span>▶</span> Ver Execução
+                              </a>
                             </div>
                           ))}
                         </div>
@@ -207,16 +238,21 @@ export default function App() {
             {/* ETAPA 2: REVISÃO EDITÁVEL */}
             {etapa === "revisao" && rascunho && (
               <div className="space-y-6 animate-in zoom-in-95 duration-300">
-                <h2 className="text-2xl font-bold text-amber-400">
+                <h2 className="text-2xl font-bold text-amber-400 flex items-center gap-2">
+                  <span className="bg-amber-400 text-slate-900 px-2 py-0.5 rounded text-sm">
+                    IA
+                  </span>
                   Revisão do Profissional
                 </h2>
-                <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-6">
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 uppercase">
-                      Resumo do Plano
+
+                <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-6 shadow-2xl">
+                  {/* Resumo do Plano */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Objetivo e Recomendações
                     </label>
                     <textarea
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 mt-2 text-slate-200 focus:ring-1 focus:ring-cyan-500 outline-none"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-slate-200 focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
                       rows={3}
                       value={rascunho.plano}
                       onChange={(e) =>
@@ -225,14 +261,15 @@ export default function App() {
                     />
                   </div>
 
+                  {/* Lista de Exercícios */}
                   <div className="space-y-6">
                     {rascunho.exercicios?.map((dia: any, diaIdx: number) => (
                       <div
                         key={diaIdx}
-                        className="p-4 bg-slate-900/50 rounded-xl border border-slate-800"
+                        className="p-5 bg-slate-900/50 rounded-2xl border border-slate-800 shadow-inner"
                       >
                         <input
-                          className="bg-transparent text-cyan-400 font-bold text-lg mb-4 w-full border-b border-slate-800 focus:border-cyan-500 outline-none"
+                          className="bg-transparent text-cyan-400 font-black text-xl mb-6 w-full border-b border-slate-800 focus:border-cyan-500 outline-none pb-2"
                           value={dia.dia}
                           onChange={(e) => {
                             const novos = [...rascunho.exercicios];
@@ -240,14 +277,16 @@ export default function App() {
                             setRascunho({ ...rascunho, exercicios: novos });
                           }}
                         />
-                        <div className="space-y-3">
+
+                        <div className="space-y-4">
                           {dia.lista?.map((ex: any, exIdx: number) => (
                             <div
                               key={exIdx}
-                              className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-slate-800 p-3 rounded-lg"
+                              className="flex flex-col md:flex-row gap-3 bg-slate-800/80 p-4 rounded-xl items-center border border-slate-700/50"
                             >
+                              {/* Nome do Exercício */}
                               <input
-                                className="md:col-span-6 bg-slate-900 border border-slate-700 p-2 rounded text-sm text-white"
+                                className="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-white font-medium"
                                 value={ex.nome}
                                 onChange={(e) => {
                                   const novos = [...rascunho.exercicios];
@@ -259,32 +298,46 @@ export default function App() {
                                   });
                                 }}
                               />
-                              <input
-                                className="md:col-span-2 bg-slate-900 border border-slate-700 p-2 rounded text-sm text-white text-center"
-                                value={ex.series}
-                                onChange={(e) => {
-                                  const novos = [...rascunho.exercicios];
-                                  novos[diaIdx].lista[exIdx].series =
-                                    e.target.value;
-                                  setRascunho({
-                                    ...rascunho,
-                                    exercicios: novos,
-                                  });
-                                }}
-                              />
-                              <input
-                                className="md:col-span-4 bg-slate-900 border border-slate-700 p-2 rounded text-sm text-white"
-                                value={ex.reps}
-                                onChange={(e) => {
-                                  const novos = [...rascunho.exercicios];
-                                  novos[diaIdx].lista[exIdx].reps =
-                                    e.target.value;
-                                  setRascunho({
-                                    ...rascunho,
-                                    exercicios: novos,
-                                  });
-                                }}
-                              />
+
+                              {/* Séries e Reps */}
+                              <div className="flex gap-2 w-full md:w-auto">
+                                <input
+                                  className="w-16 bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-white text-center"
+                                  value={ex.series}
+                                  onChange={(e) => {
+                                    const novos = [...rascunho.exercicios];
+                                    novos[diaIdx].lista[exIdx].series =
+                                      e.target.value;
+                                    setRascunho({
+                                      ...rascunho,
+                                      exercicios: novos,
+                                    });
+                                  }}
+                                />
+                                <input
+                                  className="w-24 bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-white text-center"
+                                  value={ex.reps}
+                                  onChange={(e) => {
+                                    const novos = [...rascunho.exercicios];
+                                    novos[diaIdx].lista[exIdx].reps =
+                                      e.target.value;
+                                    setRascunho({
+                                      ...rascunho,
+                                      exercicios: novos,
+                                    });
+                                  }}
+                                />
+                              </div>
+
+                              {/* BOTÃO DE VÍDEO - FORÇADO A APARECER */}
+                              <a
+                                href={`https://www.youtube.com/results?search_query=como+fazer+${encodeURIComponent(ex.nome)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-full md:w-auto bg-slate-700 hover:bg-slate-600 text-cyan-400 px-4 py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors border border-cyan-500/20"
+                              >
+                                <span>▶</span> VÍDEO
+                              </a>
                             </div>
                           ))}
                         </div>
@@ -292,18 +345,19 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div className="flex gap-4 pt-4">
+                  {/* Botões de Finalização */}
+                  <div className="flex flex-col md:flex-row gap-4 pt-6">
                     <button
                       onClick={() => setEtapa("form")}
-                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl"
+                      className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-2xl transition-all"
                     >
-                      Descartar
+                      Descartar e Voltar
                     </button>
                     <button
                       onClick={publicarTreino}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg"
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2"
                     >
-                      Enviar para Aluno
+                      🚀 ENVIAR PARA ALUNO
                     </button>
                   </div>
                 </div>

@@ -1,0 +1,12 @@
+POST http://localhost:3333/testar-treino
+Content-Type: application/json
+
+{
+  "alunoId": "id-aluno-joao",
+  "personalId": "id-personal-nayra",
+  "nome": "João Silva",
+  "idade": 30,
+  "objetivo": "emagrecimento",
+  "equipamentos": ["halteres", "colchonete"],
+  "limitacoes": ["dor no joelho direito"]
+}

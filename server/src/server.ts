@@ -4,41 +4,33 @@ import cors from "cors";
 import { prisma } from "./lib/prisma.js";
 import { supabase } from "./lib/supabase.js";
 import { gerarTreinoIA } from "./services/geminiService.js";
+import { CriarTreinoSchema } from "./schemas/treinoSchema.js"; // Garanta o .js se usar ESM
+import { z } from "zod";
+import crypto from "crypto";
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 2. O MIDDLEWARE (Fica aqui, antes das rotas começarem)
 const authenticate = async (req: any, res: any, next: any) => {
   const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Token não fornecido" });
 
-  if (!token) {
-    return res.status(401).json({ error: "Token não fornecido" });
-  }
-
-  // Valida o token com o Supabase Auth
   const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) return res.status(401).json({ error: "Sessão inválida ou expirada" });
 
-  if (error || !data.user) {
-    return res.status(401).json({ error: "Sessão inválida ou expirada" });
-  }
-
-  // Salva os dados do usuário na requisição para as rotas usarem
   req.user = data.user;
   next();
 };
 
+// --- ROTAS DE BUSCA ---
 app.get("/treinos", authenticate, async (req: any, res) => {
   const personalId = req.user.id;
-
   try {
     const treinos = await prisma.treino.findMany({
       where: { personalId },
       orderBy: { createdAt: "desc" },
-      include: {
-        aluno: true, // Isso traz os dados do aluno (nome, peso, etc) junto com o treino
-      },
+      include: { aluno: true },
     });
     res.json(treinos);
   } catch (error) {
@@ -49,40 +41,41 @@ app.get("/treinos", authenticate, async (req: any, res) => {
 app.get("/treino/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const treino = await prisma.treino.findUnique({
-      where: { id: id },
-    });
-
-    if (!treino) {
-      return res.status(404).json({ error: "Treino não encontrado" });
-    }
-
+    const treino = await prisma.treino.findUnique({ where: { id } });
+    if (!treino) return res.status(404).json({ error: "Treino não encontrado" });
     return res.json(treino);
   } catch (error) {
-    console.error("❌ Erro ao buscar treino individual:", error);
     return res.status(500).json({ error: "Erro interno no servidor" });
   }
 });
 
+// --- ROTA DE GERAÇÃO (IA) ---
 app.post("/gerar-sugestao", async (req, res) => {
   try {
-    const dadosAluno = req.body;
-    console.log(`🤖 IA gerando rascunho para: ${dadosAluno.nome}`);
-
-    const sugestaoIA = await gerarTreinoIA(dadosAluno);
+    const dadosValidados = CriarTreinoSchema.parse(req.body);
+    console.log(`🤖 IA gerando rascunho para: ${dadosValidados.nome}`);
+    const sugestaoIA = await gerarTreinoIA(dadosValidados);
     return res.json(sugestaoIA);
   } catch (error: any) {
-    console.error("❌ Erro ao gerar rascunho:", error);
-    return res.status(500).json({ error: "Falha ao gerar sugestão da IA" });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: "Dados do formulário inválidos",
+        detalhes: error.issues.map(i => `${i.path.join(".")}: ${i.message}`),
+      });
+    }
+    return res.status(500).json({ error: "Falha ao gerar sugestão" });
   }
 });
 
+// --- ROTA DE SALVAMENTO (REVISADA COM ZOD) ---
 app.post("/salvar-treino", authenticate, async (req: any, res) => {
-  const { nome, idade, peso, altura, objetivo, conteudo } = req.body;
-
-  const personalId = req.user.id;
-
   try {
+    // 1. Validar a entrada com Zod (Isso resolve o erro 400)
+    const dadosValidados = CriarTreinoSchema.parse(req.body);
+    const { nome, idade, peso, altura, objetivo, conteudo } = dadosValidados;
+    const personalId = req.user.id;
+
+    // 2. Garantir que o Personal existe no banco
     await prisma.user.upsert({
       where: { id: personalId },
       update: {},
@@ -93,42 +86,49 @@ app.post("/salvar-treino", authenticate, async (req: any, res) => {
       },
     });
 
+    // 3. Upsert do Aluno (Usando os dados já convertidos pelo Zod)
     const aluno = await prisma.aluno.upsert({
-      where: {
-        id: req.body.alunoId || crypto.randomUUID(),
+      where: { 
+        id: req.body.alunoId && req.body.alunoId !== "temp-id" 
+            ? req.body.alunoId 
+            : crypto.randomUUID() 
       },
-      update: {
-        peso: Number(peso),
-        altura: Number(altura),
-        idade: Number(idade),
-        objetivo: objetivo,
-      },
-      create: {
-        nome: nome,
-        idade: Number(idade),
-        peso: Number(peso),
-        altura: Number(altura),
-        objetivo: objetivo,
-        limitacoes: conteudo.limitacoes || [],
+      update: { peso, altura, idade, objetivo },
+      create: { 
+        nome, 
+        idade, 
+        peso, 
+        altura, 
+        objetivo,
+        limitacoes: (conteudo as any)?.limitacoes || [] 
       },
     });
 
+    // 4. Salvar o treino vinculado
     const novoTreino = await prisma.treino.create({
       data: {
-        personalId: personalId,
+        personalId,
         alunoId: aluno.id,
-        conteudo: conteudo, 
+        conteudo: conteudo as any,
       },
     });
 
-    res.json(novoTreino);
-  } catch (error) {
-    console.error("Erro ao salvar treino:", error);
-    res.status(500).json({ error: "Erro interno ao salvar o treino." });
+    return res.json(novoTreino);
+
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      console.error("⚠️ Erro de validação ao salvar:", error.issues);
+      return res.status(400).json({
+        error: "Dados inválidos para salvamento",
+        detalhes: error.issues.map(i => `${i.path.join(".")}: ${i.message}`),
+      });
+    }
+    console.error("❌ Erro ao salvar treino:", error);
+    return res.status(500).json({ error: "Erro interno ao salvar o treino." });
   }
 });
 
-// --- ROTA PARA DELETAR TREINO --- implementação pendente
+// --- OUTRAS ROTAS ---
 app.delete("/treino/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -139,17 +139,11 @@ app.delete("/treino/:id", async (req, res) => {
   }
 });
 
-// --- ROTA PARA OCULTAR/ARQUIVAR TREINO --- implementação pendente
 app.patch("/treino/:id/arquivar", async (req, res) => {
   try {
     const { id } = req.params;
     const { arquivado } = req.body;
-
-    await prisma.treino.update({
-      where: { id },
-      data: { arquivado },
-    });
-
+    await prisma.treino.update({ where: { id }, data: { arquivado } });
     return res.json({ message: "Status atualizado" });
   } catch (error) {
     return res.status(500).json({ error: "Erro ao atualizar status" });

@@ -9,13 +9,16 @@ FitEasy AI é uma aplicação web fullstack que utiliza inteligência artificial
 ## 📋 Funcionalidades Principais
 
 ### Para Personal Trainers
+
 - ✅ **Cadastro e Autenticação** - Login seguro via Supabase Auth
 - ✅ **Formulário Inteligente** - Coleta dados completos do aluno (objetivo, equipamentos, limitações)
 - ✅ **Geração Automática com IA** - Cria planos de treino personalizados usando Google Gemini
 - ✅ **Revisão e Edição** - Edita exercícios, séries, repetições antes de enviar
 - ✅ **Compartilhamento** - Gera links para que alunos visualizem seus treinos
+- ✅ **Otimizações recentes** - Backend com validação Zod e tratamento de erro melhorado, frontend mais enxuto e cards de treino com visualização detalhada
 
 ### Para Alunos
+
 - 👀 **Visualização de Treino** - Acessa treinos através de link seguro
 - 🎥 **Como Executar** - Botões para buscar vídeos de como fazer cada exercício no YouTube
 - 📱 **Design Responsivo** - Interface otimizada para mobile e desktop
@@ -25,6 +28,7 @@ FitEasy AI é uma aplicação web fullstack que utiliza inteligência artificial
 ## 🛠 Tecnologias Utilizadas
 
 ### Frontend
+
 - **React 19** - UI components
 - **TypeScript** - Tipagem estática
 - **Vite** - Build tool
@@ -33,12 +37,14 @@ FitEasy AI é uma aplicação web fullstack que utiliza inteligência artificial
 - **Supabase JS** - Autenticação
 
 ### Backend
+
 - **Node.js** - Runtime JavaScript
 - **Express** - Framework web
 - **TypeScript** - Tipagem estática
 - **Prisma** - ORM para database
 - **PostgreSQL** - Banco de dados
-- **Google Generative AI** - LLM para geração de treinos
+- **Zod** - Validação de schema e erros de formulário mais claros
+- **Google Generative AI** - LLM para geração de treinos (modelo Gemini 2.5 Flash)
 - **Supabase Auth** - Autenticação
 
 ---
@@ -50,7 +56,7 @@ Antes de iniciar, certifique-se de ter instalado:
 - **Node.js** (v18+) - [Download](https://nodejs.org/)
 - **npm** ou **yarn** (incluído com Node.js)
 - **Git** - [Download](https://git-scm.com/)
-- **PostgreSQL** (v12+) - [Download](https://www.postgresql.org/) *(ou usar Supabase hosted)*
+- **PostgreSQL** (v12+) - [Download](https://www.postgresql.org/) _(ou usar Supabase hosted)_
 
 ---
 
@@ -138,6 +144,7 @@ npx prisma studio
 ### 5. Iniciar a Aplicação
 
 **Terminal 1 - Backend:**
+
 ```bash
 cd server
 npm run dev
@@ -145,6 +152,7 @@ npm run dev
 ```
 
 **Terminal 2 - Frontend:**
+
 ```bash
 cd client
 npm run dev
@@ -270,6 +278,7 @@ fiteasy-ai/
 ## 🔌 Endpoints da API
 
 ### Autenticação
+
 ```http
 POST /auth/register
 POST /auth/login
@@ -277,6 +286,7 @@ POST /auth/logout
 ```
 
 ### Treinos (Requer token Bearer)
+
 ```http
 GET    /treinos                 # Listar treinos do personal
 GET    /treino/:id             # Buscar treino específico (público)
@@ -302,6 +312,7 @@ curl -X POST http://localhost:3001/gerar-sugestao \
 ```
 
 **Resposta:**
+
 ```json
 {
   "plano": "Hipertrofia muscular com foco em segurança articular",
@@ -326,33 +337,37 @@ curl -X POST http://localhost:3001/gerar-sugestao \
 ## 🔐 Variáveis de Ambiente Necessárias
 
 ### Backend
-| Variável | Descrição | Exemplo |
-|----------|-----------|---------|
-| `DATABASE_URL` | Connection string PostgreSQL | `postgresql://user:pass@localhost/fiteasy` |
-| `GEMINI_API_KEY` | Chave API Google Generative AI | `AIzaSyD...` |
-| `SUPABASE_ANON_KEY` | Chave pública Supabase | `eyJ...` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Chave privada Supabase | `eyJ...` |
-| `PORT` | Porta do servidor | `3001` |
-| `NODE_ENV` | Ambiente | `development` ou `production` |
+
+| Variável                    | Descrição                      | Exemplo                                    |
+| --------------------------- | ------------------------------ | ------------------------------------------ |
+| `DATABASE_URL`              | Connection string PostgreSQL   | `postgresql://user:pass@localhost/fiteasy` |
+| `GEMINI_API_KEY`            | Chave API Google Generative AI | `AIzaSyD...`                               |
+| `SUPABASE_ANON_KEY`         | Chave pública Supabase         | `eyJ...`                                   |
+| `SUPABASE_SERVICE_ROLE_KEY` | Chave privada Supabase         | `eyJ...`                                   |
+| `PORT`                      | Porta do servidor              | `3001`                                     |
+| `NODE_ENV`                  | Ambiente                       | `development` ou `production`              |
 
 ### Frontend
-| Variável | Descrição | Exemplo |
-|----------|-----------|---------|
-| `VITE_SUPABASE_URL` | URL do projeto Supabase | `https://xxx.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | Chave pública Supabase | `eyJ...` |
-| `VITE_API_URL` | URL da API backend | `http://localhost:3001` |
+
+| Variável                 | Descrição               | Exemplo                   |
+| ------------------------ | ----------------------- | ------------------------- |
+| `VITE_SUPABASE_URL`      | URL do projeto Supabase | `https://xxx.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Chave pública Supabase  | `eyJ...`                  |
+| `VITE_API_URL`           | URL da API backend      | `http://localhost:3001`   |
 
 ---
 
 ## 📊 Obtendo Credenciais
 
 ### Google Gemini API Key
+
 1. Acesse [Google AI Studio](https://aistudio.google.com/apikey)
 2. Clique em "Create API key"
 3. Copie a chave gerada
 4. Cole em `server/.env` como `GEMINI_API_KEY`
 
 ### Supabase Credentials
+
 1. Crie conta em [Supabase](https://supabase.com)
 2. Crie novo projeto
 3. Em **Settings > API**, copie:
@@ -361,6 +376,7 @@ curl -X POST http://localhost:3001/gerar-sugestao \
    - `service_role` (secret) → `SUPABASE_SERVICE_ROLE_KEY`
 
 ### PostgreSQL Local (Opcional)
+
 ```bash
 # macOS (Homebrew)
 brew install postgresql
@@ -379,6 +395,7 @@ createdb fiteasy_ai
 ## 🧪 Build & Produção
 
 ### Frontend Build
+
 ```bash
 cd client
 npm run build
@@ -386,6 +403,7 @@ npm run build
 ```
 
 ### Backend Build
+
 ```bash
 cd server
 npm run build
@@ -394,6 +412,7 @@ npm start
 ```
 
 ### Deploy (Exemplo)
+
 ```bash
 # Frontend para Vercel
 npm install -g vercel
@@ -408,6 +427,7 @@ vercel
 ## 🐛 Troubleshooting
 
 ### Erro: "PORT 3001 já está em uso"
+
 ```bash
 # Encontre o processo usando a porta
 lsof -i :3001
@@ -420,11 +440,13 @@ PORT=3002
 ```
 
 ### Erro: "GEMINI_API_KEY is required"
+
 - Verifique que `.env` existe na pasta `server/`
 - Confirme que a chave foi colada corretamente
 - Remova espaços em branco antes/depois da chave
 
 ### Erro: "Connection refused" ao banco de dados
+
 ```bash
 # Teste a conexão
 psql $DATABASE_URL
@@ -435,6 +457,7 @@ brew services restart postgresql
 ```
 
 ### Erro: "CORS Policy"
+
 - Frontend está em `http://localhost:5173`
 - Backend está configurado com CORS correto em `server.ts`
 - Verifique `VITE_API_URL` no frontend `.env`
@@ -444,6 +467,7 @@ brew services restart postgresql
 ## 📝 Scripts Disponíveis
 
 ### Backend
+
 ```bash
 npm run dev      # Desenvolvimento com hot reload
 npm run build    # Compilar TypeScript
@@ -451,6 +475,7 @@ npm start        # Executar versão compilada
 ```
 
 ### Frontend
+
 ```bash
 npm run dev      # Vite dev server
 npm run build    # Produção build
@@ -474,6 +499,7 @@ npm run lint     # ESLint check
 ## 📞 Suporte
 
 Para dúvidas, erros ou sugestões:
+
 - 📧 Abra uma issue no repositório
 - 💬 Consulte a documentação das dependências:
   - [Prisma Docs](https://www.prisma.io/docs/)
@@ -491,4 +517,4 @@ MIT License - Veja arquivo LICENSE para detalhes
 
 **Desenvolvido com ❤️ para Personal Trainers Modernos**
 
-*Last Updated: Abril 2026*
+_Last Updated: Abril 2026_

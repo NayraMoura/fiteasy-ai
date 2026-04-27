@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 // Usamos o modelo Flash por ser mais rápido e barato (grátis no tier base)
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash-latest",
+  model: "gemini-2.5-flash",
   generationConfig: { responseMimeType: "application/json" }, // Força a resposta em JSON
 });
 

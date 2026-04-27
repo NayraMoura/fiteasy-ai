@@ -31,7 +31,6 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
-
       if (event === "PASSWORD_RECOVERY") {
         const novaSenha = prompt("Digite sua nova senha:");
         if (novaSenha) {
@@ -85,12 +84,7 @@ export default function App() {
     setLoading(true);
     try {
       const respostaIA = await api.post("/gerar-sugestao", dadosDoFormulario);
-
-      setRascunho({
-        ...dadosDoFormulario,
-        ...respostaIA.data,
-      });
-
+      setRascunho({ ...dadosDoFormulario, ...respostaIA.data });
       setEtapa("revisao");
     } catch (error) {
       console.error(error);
@@ -103,18 +97,14 @@ export default function App() {
   const publicarTreino = async () => {
     const token = session?.access_token;
     if (!token) return alert("Sessão expirada.");
-
-    // Validar se temos os dados necessários no rascunho
-    if (!rascunho || !rascunho.nome) {
+    if (!rascunho || !rascunho.nome)
       return alert("Dados do treino incompletos.");
-    }
 
     try {
       await api.post(
         "/salvar-treino",
         {
-          // Envia os dados do aluno para o servidor criar/atualizar o registro
-          alunoId: rascunho.alunoId || "temp-id", // Caso ainda use IDs temporários
+          alunoId: rascunho.alunoId || "temp-id",
           nome: rascunho.nome,
           idade: rascunho.idade,
           peso: rascunho.peso,
@@ -124,12 +114,10 @@ export default function App() {
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-
       alert(`Treino de ${rascunho.nome} publicado com sucesso! 🎉`);
       setEtapa("lista");
       setRascunho(null);
     } catch (error: any) {
-      console.error(error);
       alert(
         "Erro ao publicar: " + (error.response?.data?.error || error.message),
       );
@@ -156,22 +144,24 @@ export default function App() {
                 Assistente Inteligente para Personal Trainers
               </p>
             </div>
-            {session && (
-              <button
-                onClick={() => supabase.auth.signOut()}
-                className="no-print text-xs text-slate-500 hover:text-red-400 border border-slate-700 px-3 py-1 rounded-lg"
-              >
-                Sair
-              </button>
-            )}
-            {etapa === "lista" && !treinoIdParaVisualizar && (
-              <button
-                onClick={() => setEtapa("form")}
-                className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded-xl font-bold transition-all shadow-lg"
-              >
-                + Criar Novo Treino
-              </button>
-            )}
+            <div className="flex gap-4">
+              {session && (
+                <button
+                  onClick={() => supabase.auth.signOut()}
+                  className="no-print text-xs text-slate-500 hover:text-red-400 border border-slate-700 px-3 py-1 rounded-lg"
+                >
+                  Sair
+                </button>
+              )}
+              {etapa === "lista" && (
+                <button
+                  onClick={() => setEtapa("form")}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded-xl font-bold shadow-lg transition-all"
+                >
+                  + Criar Novo Treino
+                </button>
+              )}
+            </div>
           </header>
 
           <main className="max-w-5xl mx-auto">
@@ -227,7 +217,7 @@ export default function App() {
               <div className="animate-in slide-in-from-bottom-4">
                 <button
                   onClick={() => setEtapa("lista")}
-                  className="text-slate-500 mb-4"
+                  className="text-slate-500 mb-4 hover:text-white transition-colors"
                 >
                   ← Voltar
                 </button>
@@ -235,7 +225,6 @@ export default function App() {
               </div>
             )}
 
-            {/* ETAPA 2: REVISÃO EDITÁVEL */}
             {etapa === "revisao" && rascunho && (
               <div className="space-y-6 animate-in zoom-in-95 duration-300">
                 <h2 className="text-2xl font-bold text-amber-400 flex items-center gap-2">
@@ -244,9 +233,7 @@ export default function App() {
                   </span>
                   Revisão do Profissional
                 </h2>
-
                 <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-6 shadow-2xl">
-                  {/* Resumo do Plano */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                       Objetivo e Recomendações
@@ -260,8 +247,6 @@ export default function App() {
                       }
                     />
                   </div>
-
-                  {/* Lista de Exercícios */}
                   <div className="space-y-6">
                     {rascunho.exercicios?.map((dia: any, diaIdx: number) => (
                       <div
@@ -277,14 +262,12 @@ export default function App() {
                             setRascunho({ ...rascunho, exercicios: novos });
                           }}
                         />
-
                         <div className="space-y-4">
                           {dia.lista?.map((ex: any, exIdx: number) => (
                             <div
                               key={exIdx}
                               className="flex flex-col md:flex-row gap-3 bg-slate-800/80 p-4 rounded-xl items-center border border-slate-700/50"
                             >
-                              {/* Nome do Exercício */}
                               <input
                                 className="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-white font-medium"
                                 value={ex.nome}
@@ -298,8 +281,6 @@ export default function App() {
                                   });
                                 }}
                               />
-
-                              {/* Séries e Reps */}
                               <div className="flex gap-2 w-full md:w-auto">
                                 <input
                                   className="w-16 bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-sm text-white text-center"
@@ -328,8 +309,6 @@ export default function App() {
                                   }}
                                 />
                               </div>
-
-                              {/* BOTÃO DE VÍDEO - FORÇADO A APARECER */}
                               <a
                                 href={`https://www.youtube.com/results?search_query=como+fazer+${encodeURIComponent(ex.nome)}`}
                                 target="_blank"
@@ -344,8 +323,6 @@ export default function App() {
                       </div>
                     ))}
                   </div>
-
-                  {/* Botões de Finalização */}
                   <div className="flex flex-col md:flex-row gap-4 pt-6">
                     <button
                       onClick={() => setEtapa("form")}
@@ -355,7 +332,7 @@ export default function App() {
                     </button>
                     <button
                       onClick={publicarTreino}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2"
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2"
                     >
                       🚀 ENVIAR PARA ALUNO
                     </button>
@@ -364,35 +341,61 @@ export default function App() {
               </div>
             )}
 
-            {/* ETAPA 3: LISTA DE TREINOS */}
             {etapa === "lista" && (
-              <div className="grid gap-8">
+              <div className="grid gap-6">
                 {treinos.map((t) => (
                   <div
                     key={t.id}
-                    className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl"
+                    className="bg-slate-800 rounded-2xl border border-slate-700 shadow-xl overflow-hidden"
                   >
-                    <h3 className="text-xl font-bold text-white">
-                      {t.conteudo.plano}
-                    </h3>
-                    <div className="flex gap-2 mt-4">
+                    <div className="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+                      <div>
+                        <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest">
+                          Aluno(a)
+                        </span>
+                        <h3 className="text-lg font-black text-white">
+                          {t.aluno?.nome || "Aluno Particular"}
+                        </h3>
+                      </div>
                       <button
-                        onClick={() => {
-                          const link = `${window.location.origin}?view=${t.id}`;
-                          navigator.clipboard.writeText(link);
-                          alert("Link copiado!");
-                        }}
-                        className="bg-slate-700 px-3 py-2 rounded-lg text-xs"
+                        onClick={() => toggleVisibilidade(t.id)}
+                        className="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded-lg transition-colors border border-slate-600"
                       >
-                        🔗 Link
+                        {visiveis[t.id] ? "OCULTAR" : "VER DETALHES"}
                       </button>
                     </div>
+                    {visiveis[t.id] && (
+                      <div className="p-6 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                        <div>
+                          <p className="text-xs font-bold text-slate-500 uppercase mb-1">
+                            Resumo do Plano
+                          </p>
+                          <p className="text-sm text-slate-400 leading-relaxed italic">
+                            {t.conteudo.plano}
+                          </p>
+                        </div>
+                        <div className="pt-4 border-t border-slate-700/50">
+                          <button
+                            onClick={() => {
+                              const link = `${window.location.origin}?view=${t.id}`;
+                              navigator.clipboard.writeText(link);
+                              alert("Link do aluno copiado! ✅");
+                            }}
+                            className="w-full bg-cyan-600/10 text-cyan-400 border border-cyan-500/20 py-2.5 rounded-xl text-[10px] font-bold hover:bg-cyan-600 hover:text-white transition-all"
+                          >
+                            🔗 COPIAR LINK
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {treinos.length === 0 && (
-                  <p className="text-center text-slate-600 py-20">
-                    Nenhum treino gerado.
-                  </p>
+                  <div className="text-center py-20 border-2 border-dashed border-slate-800 rounded-3xl">
+                    <p className="text-slate-600">
+                      Nenhum treino gerado ainda.
+                    </p>
+                  </div>
                 )}
               </div>
             )}
